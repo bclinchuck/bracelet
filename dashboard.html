@@ -74,18 +74,106 @@
       return;
     }
 
-    feedDiv.innerHTML = bracelets.map(b => `
+    await loadSocialData(bracelets.map(b => b.id));
+    feedDiv.innerHTML = bracelets.map(b => renderBraceletCard(b)).join("");
+  }
+
+  // ---- Likes and comments ----
+  // Loaded in bulk (one query for all likes, one for all comments) rather
+  // than per-card, so the feed doesn't fire off dozens of tiny requests.
+  let likeCounts = {};   // bracelet_id -> number of likes
+  let userLiked = {};    // bracelet_id -> true if currentUser liked it
+  let commentsByBracelet = {}; // bracelet_id -> array of comment rows
+
+  async function loadSocialData(braceletIds) {
+    const { data: likes } = await supabase
+      .from("bracelet_likes")
+      .select("bracelet_id, user_id")
+      .in("bracelet_id", braceletIds);
+
+    likeCounts = {};
+    userLiked = {};
+    (likes || []).forEach(like => {
+      likeCounts[like.bracelet_id] = (likeCounts[like.bracelet_id] || 0) + 1;
+      if (like.user_id === currentUser.id) userLiked[like.bracelet_id] = true;
+    });
+
+    const { data: comments } = await supabase
+      .from("bracelet_comments")
+      .select("*, profiles(username)")
+      .in("bracelet_id", braceletIds)
+      .order("created_at", { ascending: true });
+
+    commentsByBracelet = {};
+    (comments || []).forEach(c => {
+      if (!commentsByBracelet[c.bracelet_id]) commentsByBracelet[c.bracelet_id] = [];
+      commentsByBracelet[c.bracelet_id].push(c);
+    });
+  }
+
+  function renderBraceletCard(b) {
+    const liked = !!userLiked[b.id];
+    const count = likeCounts[b.id] || 0;
+    const comments = commentsByBracelet[b.id] || [];
+
+    return `
       <div class="card">
         <img src="${b.photo_url}" alt="bracelet photo">
         <strong>${b.profiles.username}</strong>
         <p>${b.caption || ""}</p>
+
+        <div class="social-row">
+          <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${b.id}', ${liked})">
+            ${liked ? '♥ Liked' : '♡ Like'} ${count > 0 ? `(${count})` : ''}
+          </button>
+        </div>
+
+        <div class="comments-list">
+          ${comments.map(c => `
+            <div class="comment-row"><strong>${c.profiles.username}:</strong> ${c.comment}</div>
+          `).join("") || "<p style='color:var(--ink-soft); font-size:0.85rem;'>No comments yet.</p>"}
+        </div>
+
+        <div class="comment-form">
+          <input type="text" id="comment-input-${b.id}" placeholder="Add a comment...">
+          <button onclick="submitComment('${b.id}')">Post</button>
+        </div>
       </div>
-    `).join("");
+    `;
+  }
+
+  async function toggleLike(braceletId, currentlyLiked) {
+    if (currentlyLiked) {
+      await supabase.from("bracelet_likes")
+        .delete()
+        .eq("bracelet_id", braceletId)
+        .eq("user_id", currentUser.id);
+    } else {
+      await supabase.from("bracelet_likes")
+        .insert({ bracelet_id: braceletId, user_id: currentUser.id });
+    }
+    loadFriendFeed(); // reload so the count and heart update
+  }
+
+  async function submitComment(braceletId) {
+    const input = document.getElementById(`comment-input-${braceletId}`);
+    const text = input.value.trim();
+    if (!text) return;
+
+    const { error } = await supabase.from("bracelet_comments").insert({
+      bracelet_id: braceletId,
+      user_id: currentUser.id,
+      comment: text
+    });
+
+    if (error) { alert(error.message); return; }
+    input.value = "";
+    loadFriendFeed();
   }
 
   async function logout() {
     await supabase.auth.signOut();
-    window.location.href = "login.html";
+    window.location.href = "index.html";
   }
 
   init();
