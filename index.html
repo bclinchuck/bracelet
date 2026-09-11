@@ -1,11 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=login.html">
-    <title>Bracelet</title>
+<meta charset="UTF-8">
+<title>Bracelet Buddies — Log In</title>
+<link rel="stylesheet" href="style.css">
+<!-- Loads the Supabase JS library from a CDN -->
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 </head>
 <body>
-    <p>Loading...</p>
+
+<div class="form-box">
+  <h1>🧵 Bracelet Buddies</h1>
+
+  <!-- One form toggles between Log In and Sign Up mode -->
+  <div id="username-field" style="display:none;">
+    <input type="text" id="username" placeholder="Choose a username">
+  </div>
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <button id="submit-btn" onclick="handleSubmit()">Log In</button>
+  <p class="error-msg" id="error-msg"></p>
+
+  <p>
+    <span id="toggle-text">Don't have an account?</span>
+    <a href="#" id="toggle-link" onclick="toggleMode()">Sign Up</a>
+  </p>
+</div>
+
+<script>
+  let isSignUp = false; // tracks which mode the form is in
+
+  // Switches the form between "Log In" and "Sign Up" appearance
+  function toggleMode() {
+    isSignUp = !isSignUp;
+    document.getElementById("username-field").style.display = isSignUp ? "block" : "none";
+    document.getElementById("submit-btn").textContent = isSignUp ? "Sign Up" : "Log In";
+    document.getElementById("toggle-text").textContent = isSignUp ? "Already have an account?" : "Don't have an account?";
+    document.getElementById("toggle-link").textContent = isSignUp ? "Log In" : "Sign Up";
+    document.getElementById("error-msg").textContent = "";
+  }
+
+  async function handleSubmit() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const errorMsg = document.getElementById("error-msg");
+    errorMsg.textContent = "";
+
+    if (isSignUp) {
+      const username = document.getElementById("username").value.trim();
+      if (!username) {
+        errorMsg.textContent = "Please choose a username.";
+        return;
+      }
+      // options.data.username gets picked up by the trigger in schema.sql
+      // that auto-creates the profiles row.
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username } }
+      });
+      if (error) {
+        errorMsg.textContent = error.message;
+        return;
+      }
+      alert("Account created! Check your email to confirm, then log in.");
+      toggleMode();
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        errorMsg.textContent = error.message;
+        return;
+      }
+      window.location.href = "dashboard.html";
+    }
+  }
+</script>
+
 </body>
 </html>
