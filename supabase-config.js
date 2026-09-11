@@ -8,8 +8,8 @@
 // (Security is enforced by the Row Level Security rules in schema.sql.)
 // ============================================================
 
-const SUPABASE_URL = "https://YOUR-PROJECT-ID.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+const SUPABASE_URL = "https://ioziffmcyttyeevifztd.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvemlmZm1jeXR0eWVldmlmenRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4ODIwNTcsImV4cCI6MjEwNDQ1ODA1N30.-Qi3SwJrOxLEuCq9svQnXRo4DkRy9aFW8XjaFTYTiHI";
 
 // Creates one shared client that every page's script can use.
 // (supabase-js is loaded from a CDN link in each HTML file's <head>.)
