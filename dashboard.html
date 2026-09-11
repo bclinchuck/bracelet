@@ -81,19 +81,23 @@
   // than per-card, so the feed doesn't fire off dozens of tiny requests.
   let likeCounts = {};   // bracelet_id -> number of likes
   let userLiked = {};    // bracelet_id -> true if currentUser liked it
+  let likersByBracelet = {}; // bracelet_id -> array of usernames who liked it
   let commentsByBracelet = {}; // bracelet_id -> array of comment rows
 
   async function loadSocialData(braceletIds) {
     const { data: likes } = await supabase
       .from("bracelet_likes")
-      .select("bracelet_id, user_id")
+      .select("bracelet_id, user_id, profiles(username)")
       .in("bracelet_id", braceletIds);
 
     likeCounts = {};
     userLiked = {};
+    likersByBracelet = {};
     (likes || []).forEach(like => {
       likeCounts[like.bracelet_id] = (likeCounts[like.bracelet_id] || 0) + 1;
       if (like.user_id === currentUser.id) userLiked[like.bracelet_id] = true;
+      if (!likersByBracelet[like.bracelet_id]) likersByBracelet[like.bracelet_id] = [];
+      likersByBracelet[like.bracelet_id].push(like.profiles.username);
     });
 
     const { data: comments } = await supabase
@@ -124,6 +128,10 @@
           <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${b.id}', ${liked})">
             ${liked ? '♥ Liked' : '♡ Like'} ${count > 0 ? `(${count})` : ''}
           </button>
+          ${count > 0 ? `<button class="secondary" onclick="toggleLikersList('${b.id}')">See who liked</button>` : ''}
+        </div>
+        <div id="likers-list-${b.id}" class="comment-row" style="display:none; color:var(--ink-soft);">
+          Liked by ${(likersByBracelet[b.id] || []).join(", ")}
         </div>
 
         <div class="comments-list">
@@ -151,6 +159,12 @@
         .insert({ bracelet_id: braceletId, user_id: currentUser.id });
     }
     loadFriendFeed(); // reload so the count and heart update
+  }
+
+  // Shows/hides the "Liked by ..." line under a post
+  function toggleLikersList(braceletId) {
+    const el = document.getElementById(`likers-list-${braceletId}`);
+    el.style.display = el.style.display === "none" ? "block" : "none";
   }
 
   async function submitComment(braceletId) {
