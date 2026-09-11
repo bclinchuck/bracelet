@@ -64,7 +64,6 @@
         errorMsg.textContent = error.message;
         return;
       }
-      alert("Account created! Check your email to confirm, then log in.");
       toggleMode();
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
