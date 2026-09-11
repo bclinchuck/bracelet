@@ -13,11 +13,17 @@
 <div class="form-box">
   <h1>🧵 Bracelet Buddies</h1>
 
-  <!-- One form toggles between Log In and Sign Up mode -->
-  <div id="username-field" style="display:none;">
-    <input type="text" id="username" placeholder="Choose a username">
+  <!-- Shown only in Sign Up mode: pick a username, provide an email -->
+  <div id="signup-fields" style="display:none;">
+    <input type="text" id="signup-username" placeholder="Choose a username">
+    <input type="email" id="signup-email" placeholder="Email">
   </div>
-  <input type="email" id="email" placeholder="Email">
+
+  <!-- Shown only in Log In mode: username instead of email -->
+  <div id="login-fields">
+    <input type="text" id="login-username" placeholder="Username">
+  </div>
+
   <input type="password" id="password" placeholder="Password">
   <button id="submit-btn" onclick="handleSubmit()">Log In</button>
   <p class="error-msg" id="error-msg"></p>
@@ -34,7 +40,8 @@
   // Switches the form between "Log In" and "Sign Up" appearance
   function toggleMode() {
     isSignUp = !isSignUp;
-    document.getElementById("username-field").style.display = isSignUp ? "block" : "none";
+    document.getElementById("signup-fields").style.display = isSignUp ? "block" : "none";
+    document.getElementById("login-fields").style.display = isSignUp ? "none" : "block";
     document.getElementById("submit-btn").textContent = isSignUp ? "Sign Up" : "Log In";
     document.getElementById("toggle-text").textContent = isSignUp ? "Already have an account?" : "Don't have an account?";
     document.getElementById("toggle-link").textContent = isSignUp ? "Log In" : "Sign Up";
@@ -42,13 +49,13 @@
   }
 
   async function handleSubmit() {
-    const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
     const errorMsg = document.getElementById("error-msg");
     errorMsg.textContent = "";
 
     if (isSignUp) {
-      const username = document.getElementById("username").value.trim();
+      const username = document.getElementById("signup-username").value.trim();
+      const email = document.getElementById("signup-email").value.trim();
       if (!username) {
         errorMsg.textContent = "Please choose a username.";
         return;
@@ -64,8 +71,26 @@
         errorMsg.textContent = error.message;
         return;
       }
+      alert("Account created! You can log in now with your username.");
       toggleMode();
     } else {
+      const username = document.getElementById("login-username").value.trim();
+      if (!username) {
+        errorMsg.textContent = "Please enter your username.";
+        return;
+      }
+
+      // Look up the email that goes with this username using the
+      // get_email_by_username function (see add-username-login.sql),
+      // since Supabase Auth itself only knows how to sign in by email.
+      const { data: email, error: lookupError } = await supabase
+        .rpc("get_email_by_username", { input_username: username });
+
+      if (lookupError || !email) {
+        errorMsg.textContent = "No account found with that username.";
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         errorMsg.textContent = error.message;
