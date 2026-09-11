@@ -126,6 +126,7 @@
     await loadSocialData(bracelets.map(b => b.id));
 
     listDiv.innerHTML = bracelets.map(b => {
+      const liked = !!userLiked[b.id];
       const count = likeCounts[b.id] || 0;
       const comments = commentsByBracelet[b.id] || [];
       return `
@@ -134,7 +135,9 @@
           <p>${b.caption || ""}</p>
 
           <div class="social-row">
-            <span>${count > 0 ? `♥ ${count} like${count === 1 ? '' : 's'}` : 'No likes yet'}</span>
+            <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${b.id}', ${liked})">
+              ${liked ? '♥ Liked' : '♡ Like'} ${count > 0 ? `(${count})` : ''}
+            </button>
           </div>
 
           <div class="comments-list">
@@ -143,26 +146,33 @@
             `).join("") || "<p style='color:var(--ink-soft); font-size:0.85rem;'>No comments yet.</p>"}
           </div>
 
-          <button class="secondary" onclick="deleteBracelet('${b.id}')">Delete</button>
+          <div class="comment-form">
+            <input type="text" id="comment-input-${b.id}" placeholder="Add a comment...">
+            <button onclick="submitComment('${b.id}')">Post</button>
+          </div>
+
+          <button class="secondary" onclick="deleteBracelet('${b.id}')" style="margin-top:10px;">Delete</button>
         </div>
       `;
     }).join("");
   }
 
-  // ---- Likes and comments (read-only display here — liking/commenting
-  // on your own photos happens from friends viewing the dashboard feed) ----
+  // ---- Likes and comments — you can like/comment on your own posts too ----
   let likeCounts = {};
+  let userLiked = {};
   let commentsByBracelet = {};
 
   async function loadSocialData(braceletIds) {
     const { data: likes } = await supabase
       .from("bracelet_likes")
-      .select("bracelet_id")
+      .select("bracelet_id, user_id")
       .in("bracelet_id", braceletIds);
 
     likeCounts = {};
+    userLiked = {};
     (likes || []).forEach(like => {
       likeCounts[like.bracelet_id] = (likeCounts[like.bracelet_id] || 0) + 1;
+      if (like.user_id === currentUser.id) userLiked[like.bracelet_id] = true;
     });
 
     const { data: comments } = await supabase
@@ -176,6 +186,35 @@
       if (!commentsByBracelet[c.bracelet_id]) commentsByBracelet[c.bracelet_id] = [];
       commentsByBracelet[c.bracelet_id].push(c);
     });
+  }
+
+  async function toggleLike(braceletId, currentlyLiked) {
+    if (currentlyLiked) {
+      await supabase.from("bracelet_likes")
+        .delete()
+        .eq("bracelet_id", braceletId)
+        .eq("user_id", currentUser.id);
+    } else {
+      await supabase.from("bracelet_likes")
+        .insert({ bracelet_id: braceletId, user_id: currentUser.id });
+    }
+    loadBracelets(); // reload so the count and heart update
+  }
+
+  async function submitComment(braceletId) {
+    const input = document.getElementById(`comment-input-${braceletId}`);
+    const text = input.value.trim();
+    if (!text) return;
+
+    const { error } = await supabase.from("bracelet_comments").insert({
+      bracelet_id: braceletId,
+      user_id: currentUser.id,
+      comment: text
+    });
+
+    if (error) { alert(error.message); return; }
+    input.value = "";
+    loadBracelets();
   }
 
   async function deleteBracelet(id) {

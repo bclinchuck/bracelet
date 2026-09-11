@@ -21,7 +21,7 @@
 
 <main>
   <h1>Welcome back!</h1>
-  <p>Here's what your friends have been making lately.</p>
+  <p>Here's what you and your friends have been making lately.</p>
   <div id="friend-feed">Loading...</div>
 </main>
 
@@ -42,7 +42,7 @@
     loadFriendFeed();
   }
 
-  // Shows the most recent bracelet photos posted by accepted friends
+  // Shows the most recent bracelet photos from you and your accepted friends
   async function loadFriendFeed() {
     const feedDiv = document.getElementById("friend-feed");
 
@@ -57,20 +57,18 @@
       f.user_id === currentUser.id ? f.friend_id : f.user_id
     );
 
-    if (friendIds.length === 0) {
-      feedDiv.innerHTML = "<p>Add some friends to see their bracelets here!</p>";
-      return;
-    }
+    // Include your own posts in the feed too, not just friends'
+    const feedUserIds = [...friendIds, currentUser.id];
 
     const { data: bracelets } = await supabase
       .from("bracelets")
       .select("*, profiles(username)")
-      .in("user_id", friendIds)
+      .in("user_id", feedUserIds)
       .order("created_at", { ascending: false })
       .limit(10);
 
     if (!bracelets || bracelets.length === 0) {
-      feedDiv.innerHTML = "<p>No bracelets from friends yet.</p>";
+      feedDiv.innerHTML = "<p>No bracelets yet \u2014 post one from My Bracelets, or add friends to see theirs here!</p>";
       return;
     }
 
