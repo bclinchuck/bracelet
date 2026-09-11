@@ -75,8 +75,12 @@
       errorMsg.textContent = "";
     }
 
-    // Give the file a unique path so users' uploads don't overwrite each other
-    const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
+    // Supabase Storage rejects spaces and some punctuation in file paths,
+    // and screenshots/photos often have names like "Screenshot 2026-09-11
+    // at 2.31.18 PM.png". Strip anything that isn't a letter, number, dot,
+    // or hyphen so the upload never fails because of the filename.
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-]/g, "_");
+    const filePath = `${currentUser.id}/${Date.now()}-${safeName}`;
 
     // IMPORTANT: pass contentType explicitly — without it, Supabase Storage
     // defaults to saving the file as text/plain, and browsers then refuse
