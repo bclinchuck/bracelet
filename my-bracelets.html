@@ -6,6 +6,9 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<!-- Converts iPhone HEIC photos to JPEG right in the browser before upload,
+     since no browser can display HEIC directly. -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 </head>
 <body>
 
@@ -47,8 +50,30 @@
     const errorMsg = document.getElementById("upload-error");
     errorMsg.textContent = "";
 
-    const file = fileInput.files[0];
+    let file = fileInput.files[0];
     if (!file) { errorMsg.textContent = "Please choose a photo."; return; }
+
+    // iPhones often save photos as HEIC, which no browser can display as
+    // an <img>. Detect that (by file type OR the .heic/.heif extension,
+    // since some browsers don't report a MIME type for HEIC files) and
+    // convert it to a normal JPEG before doing anything else.
+    const isHeic = file.type === "image/heic" || file.type === "image/heif" ||
+                   /\.hei[cf]$/i.test(file.name);
+
+    if (isHeic) {
+      errorMsg.textContent = "Converting photo…";
+      try {
+        const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+        // Rebuild a File object (heic2any returns a plain Blob) so the rest
+        // of the upload code can keep treating it like a normal file.
+        const newName = file.name.replace(/\.hei[cf]$/i, ".jpg");
+        file = new File([convertedBlob], newName, { type: "image/jpeg" });
+      } catch (err) {
+        errorMsg.textContent = "Couldn't convert this HEIC photo: " + err.message;
+        return;
+      }
+      errorMsg.textContent = "";
+    }
 
     // Give the file a unique path so users' uploads don't overwrite each other
     const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
@@ -94,13 +119,59 @@
       return;
     }
 
-    listDiv.innerHTML = bracelets.map(b => `
-      <div class="card">
-        <img src="${b.photo_url}" alt="bracelet photo">
-        <p>${b.caption || ""}</p>
-        <button class="secondary" onclick="deleteBracelet('${b.id}')">Delete</button>
-      </div>
-    `).join("");
+    await loadSocialData(bracelets.map(b => b.id));
+
+    listDiv.innerHTML = bracelets.map(b => {
+      const count = likeCounts[b.id] || 0;
+      const comments = commentsByBracelet[b.id] || [];
+      return `
+        <div class="card">
+          <img src="${b.photo_url}" alt="bracelet photo">
+          <p>${b.caption || ""}</p>
+
+          <div class="social-row">
+            <span>${count > 0 ? `♥ ${count} like${count === 1 ? '' : 's'}` : 'No likes yet'}</span>
+          </div>
+
+          <div class="comments-list">
+            ${comments.map(c => `
+              <div class="comment-row"><strong>${c.profiles.username}:</strong> ${c.comment}</div>
+            `).join("") || "<p style='color:var(--ink-soft); font-size:0.85rem;'>No comments yet.</p>"}
+          </div>
+
+          <button class="secondary" onclick="deleteBracelet('${b.id}')">Delete</button>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // ---- Likes and comments (read-only display here — liking/commenting
+  // on your own photos happens from friends viewing the dashboard feed) ----
+  let likeCounts = {};
+  let commentsByBracelet = {};
+
+  async function loadSocialData(braceletIds) {
+    const { data: likes } = await supabase
+      .from("bracelet_likes")
+      .select("bracelet_id")
+      .in("bracelet_id", braceletIds);
+
+    likeCounts = {};
+    (likes || []).forEach(like => {
+      likeCounts[like.bracelet_id] = (likeCounts[like.bracelet_id] || 0) + 1;
+    });
+
+    const { data: comments } = await supabase
+      .from("bracelet_comments")
+      .select("*, profiles(username)")
+      .in("bracelet_id", braceletIds)
+      .order("created_at", { ascending: true });
+
+    commentsByBracelet = {};
+    (comments || []).forEach(c => {
+      if (!commentsByBracelet[c.bracelet_id]) commentsByBracelet[c.bracelet_id] = [];
+      commentsByBracelet[c.bracelet_id].push(c);
+    });
   }
 
   async function deleteBracelet(id) {
