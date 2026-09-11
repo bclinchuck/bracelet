@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bracelet Buddies — Friends</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+</head>
+<body>
+
+<nav>
+  <a href="dashboard.html">Home</a>
+  <a href="tutorials.html">Tutorials</a>
+  <a href="my-bracelets.html">My Bracelets</a>
+  <a href="friends.html">Friends</a>
+  <span class="spacer"></span>
+  <a href="#" onclick="logout()" style="color:white;">Log Out</a>
+</nav>
+
+<main>
+  <h1>Friends</h1>
+
+  <div class="card">
+    <h2>Find Friends</h2>
+    <input type="text" id="search-input" placeholder="Search by username">
+    <button onclick="searchUsers()">Search</button>
+    <div id="search-results"></div>
+  </div>
+
+  <h2>Friend Requests</h2>
+  <div id="pending-requests">Loading...</div>
+
+  <h2>My Friends</h2>
+  <div id="friend-list">Loading...</div>
+</main>
+
+<script>
+  let currentUser;
+
+  async function init() {
+    currentUser = await requireLogin();
+    if (!currentUser) return;
+    loadPendingRequests();
+    loadFriends();
+  }
+
+  async function searchUsers() {
+    const query = document.getElementById("search-input").value.trim();
+    const resultsDiv = document.getElementById("search-results");
+    if (!query) { resultsDiv.innerHTML = ""; return; }
+
+    const { data: users } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .ilike("username", `%${query}%`)
+      .neq("id", currentUser.id)
+      .limit(10);
+
+    if (!users || users.length === 0) {
+      resultsDiv.innerHTML = "<p>No users found.</p>";
+      return;
+    }
+
+    resultsDiv.innerHTML = users.map(u => `
+      <div class="card">
+        ${u.username}
+        <button onclick="sendRequest('${u.id}')">Add Friend</button>
+      </div>
+    `).join("");
+  }
+
+  async function sendRequest(friendId) {
+    const { error } = await supabase.from("friendships").insert({
+      user_id: currentUser.id,
+      friend_id: friendId,
+      status: "pending"
+    });
+    if (error) { alert(error.message); return; }
+    alert("Friend request sent!");
+  }
+
+  // Requests where someone ELSE sent a request TO me, still pending
+  async function loadPendingRequests() {
+    const div = document.getElementById("pending-requests");
+
+    const { data: requests } = await supabase
+      .from("friendships")
+      .select("id, user_id, profiles!friendships_user_id_fkey(username)")
+      .eq("friend_id", currentUser.id)
+      .eq("status", "pending");
+
+    if (!requests || requests.length === 0) {
+      div.innerHTML = "<p>No pending requests.</p>";
+      return;
+    }
+
+    div.innerHTML = requests.map(r => `
+      <div class="card">
+        ${r.profiles.username} wants to be friends.
+        <button onclick="acceptRequest('${r.id}')">Accept</button>
+      </div>
+    `).join("");
+  }
+
+  async function acceptRequest(requestId) {
+    const { error } = await supabase
+      .from("friendships")
+      .update({ status: "accepted" })
+      .eq("id", requestId);
+    if (error) { alert(error.message); return; }
+    loadPendingRequests();
+    loadFriends();
+  }
+
+  // Accepted friendships in either direction
+  async function loadFriends() {
+    const div = document.getElementById("friend-list");
+
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select("user_id, friend_id, profiles!friendships_user_id_fkey(username), friend_profile:profiles!friendships_friend_id_fkey(username)")
+      .eq("status", "accepted")
+      .or(`user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`);
+
+    if (!friendships || friendships.length === 0) {
+      div.innerHTML = "<p>No friends yet — search above to add some!</p>";
+      return;
+    }
+
+    div.innerHTML = friendships.map(f => {
+      const isMeSender = f.user_id === currentUser.id;
+      const friendName = isMeSender ? f.friend_profile.username : f.profiles.username;
+      return `<div class="card">${friendName}</div>`;
+    }).join("");
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  }
+
+  init();
+</script>
+
+</body>
+</html>

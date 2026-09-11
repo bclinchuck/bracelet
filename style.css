@@ -1,0 +1,246 @@
+/* ============================================================
+   SHARED STYLES — used by every page
+   Look & feel: embroidery-floss craft palette. The one bold move
+   is the striped "woven thread" edge on cards and nav — everything
+   else stays quiet so that motif reads clearly.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  /* ---- palette: named after embroidery floss colors ---- */
+  --cream:   #faf6ef;  /* page background, like unbleached muslin */
+  --paper:   #ffffff;  /* card background */
+  --ink:     #2b2420;  /* body text */
+  --ink-soft:#6b6058;  /* secondary text */
+  --coral:   #e2624f;  /* primary thread color */
+  --coral-dark: #c94b3a;
+  --teal:    #3c8c86;  /* secondary thread color */
+  --mustard: #e3a94a;  /* tertiary thread color */
+  --plum:    #7a4f6b;  /* quaternary thread color */
+  --line:    #e9e1d6;  /* hairline borders */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+h1, h2, h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+h1 { font-size: 2rem; margin-bottom: 4px; }
+h2 { font-size: 1.3rem; margin-top: 0; }
+
+/* The braided stripe — four floss colors, reused as the nav's
+   bottom border and each card's top edge. This is the one place
+   the design gets bold; it's meant to look like a woven bracelet. */
+.thread-stripe {
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--coral) 0 24px,
+    var(--teal) 24px 48px,
+    var(--mustard) 48px 72px,
+    var(--plum) 72px 96px
+  );
+}
+
+/* Top nav shown on every page except login */
+nav {
+  background: var(--paper);
+  padding: 16px 24px 0 24px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+nav::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 5px;
+  margin-top: 16px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--coral) 0 24px,
+    var(--teal) 24px 48px,
+    var(--mustard) 48px 72px,
+    var(--plum) 72px 96px
+  );
+}
+
+nav a {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding-bottom: 16px;
+}
+
+nav a:hover {
+  color: var(--coral-dark);
+}
+
+nav .spacer {
+  flex: 1;
+}
+
+main {
+  max-width: 760px;
+  margin: 40px auto 80px auto;
+  padding: 0 24px;
+}
+
+/* Card used for tutorials, bracelets, friend rows, etc.
+   The striped top edge (not a shadow) is what separates it from
+   the page — a nod to a woven bracelet's edge. */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 4px;
+  padding: 20px;
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.card::before {
+  content: "";
+  display: block;
+  height: 4px;
+  margin: -20px -20px 16px -20px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--coral) 0 16px,
+    var(--teal) 16px 32px,
+    var(--mustard) 32px 48px,
+    var(--plum) 48px 64px
+  );
+  border-radius: 4px 4px 0 0;
+}
+
+.card img {
+  width: 60%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 3px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+button, input[type="submit"] {
+  background: var(--coral);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 100px; /* pill shape, like a knotted bracelet clasp */
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.15s ease;
+}
+
+button:hover {
+  background: var(--coral-dark);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+
+button.secondary:hover {
+  background: var(--cream);
+  border-color: var(--ink-soft);
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 10px 12px;
+  margin: 0 0 14px 0;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--coral);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white;
+  vertical-align: middle;
+}
+
+.status-not_started { background: var(--ink-soft); }
+.status-in_progress { background: var(--mustard); }
+.status-completed { background: var(--teal); }
+
+.error-msg {
+  color: var(--coral-dark);
+  font-size: 0.85rem;
+}
+
+.form-box {
+  max-width: 380px;
+  margin: 90px auto;
+  background: var(--paper);
+  padding: 36px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-box::before {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 5px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--coral) 0 20px,
+    var(--teal) 20px 40px,
+    var(--mustard) 40px 60px,
+    var(--plum) 60px 80px
+  );
+}
+
+.form-box h1 {
+  margin-top: 8px;
+}

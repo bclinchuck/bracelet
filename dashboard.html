@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bracelet Buddies — Home</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+</head>
+<body>
+
+<nav>
+  <a href="dashboard.html">Home</a>
+  <a href="tutorials.html">Tutorials</a>
+  <a href="my-bracelets.html">My Bracelets</a>
+  <a href="friends.html">Friends</a>
+  <span class="spacer"></span>
+  <span id="welcome-msg" style="color:white;"></span>
+  <a href="#" onclick="logout()">Log Out</a>
+</nav>
+
+<main>
+  <h1>Welcome back!</h1>
+  <p>Here's what your friends have been making lately.</p>
+  <div id="friend-feed">Loading...</div>
+</main>
+
+<script>
+  let currentUser;
+
+  async function init() {
+    currentUser = await requireLogin();
+    if (!currentUser) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", currentUser.id)
+      .single();
+    document.getElementById("welcome-msg").textContent = "Hi, " + profile.username;
+
+    loadFriendFeed();
+  }
+
+  // Shows the most recent bracelet photos posted by accepted friends
+  async function loadFriendFeed() {
+    const feedDiv = document.getElementById("friend-feed");
+
+    // Get IDs of accepted friends (in either direction of the friendship row)
+    const { data: friendships } = await supabase
+      .from("friendships")
+      .select("user_id, friend_id")
+      .eq("status", "accepted")
+      .or(`user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`);
+
+    const friendIds = (friendships || []).map(f =>
+      f.user_id === currentUser.id ? f.friend_id : f.user_id
+    );
+
+    if (friendIds.length === 0) {
+      feedDiv.innerHTML = "<p>Add some friends to see their bracelets here!</p>";
+      return;
+    }
+
+    const { data: bracelets } = await supabase
+      .from("bracelets")
+      .select("*, profiles(username)")
+      .in("user_id", friendIds)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (!bracelets || bracelets.length === 0) {
+      feedDiv.innerHTML = "<p>No bracelets from friends yet.</p>";
+      return;
+    }
+
+    feedDiv.innerHTML = bracelets.map(b => `
+      <div class="card">
+        <img src="${b.photo_url}" alt="bracelet photo">
+        <strong>${b.profiles.username}</strong>
+        <p>${b.caption || ""}</p>
+      </div>
+    `).join("");
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  }
+
+  init();
+</script>
+
+</body>
+</html>

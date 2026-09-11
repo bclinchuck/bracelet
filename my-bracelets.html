@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bracelet Buddies — My Bracelets</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+</head>
+<body>
+
+<nav>
+  <a href="dashboard.html">Home</a>
+  <a href="tutorials.html">Tutorials</a>
+  <a href="my-bracelets.html">My Bracelets</a>
+  <a href="friends.html">Friends</a>
+  <span class="spacer"></span>
+  <a href="#" onclick="logout()" style="color:white;">Log Out</a>
+</nav>
+
+<main>
+  <h1>My Bracelets</h1>
+
+  <div class="card">
+    <h2>Share a Photo</h2>
+    <input type="file" id="photo-input" accept="image/*">
+    <textarea id="caption-input" placeholder="Caption (optional)"></textarea>
+    <button onclick="uploadBracelet()">Upload</button>
+    <p class="error-msg" id="upload-error"></p>
+  </div>
+
+  <h2>My Gallery</h2>
+  <div id="bracelet-list">Loading...</div>
+</main>
+
+<script>
+  let currentUser;
+
+  async function init() {
+    currentUser = await requireLogin();
+    if (!currentUser) return;
+    loadBracelets();
+  }
+
+  async function uploadBracelet() {
+    const fileInput = document.getElementById("photo-input");
+    const errorMsg = document.getElementById("upload-error");
+    errorMsg.textContent = "";
+
+    const file = fileInput.files[0];
+    if (!file) { errorMsg.textContent = "Please choose a photo."; return; }
+
+    // Give the file a unique path so users' uploads don't overwrite each other
+    const filePath = `${currentUser.id}/${Date.now()}-${file.name}`;
+
+    // IMPORTANT: pass contentType explicitly — without it, Supabase Storage
+    // defaults to saving the file as text/plain, and browsers then refuse
+    // to render it as an image even though the photo data itself is fine.
+    const { error: uploadError } = await supabase.storage
+      .from("bracelet-photos")
+      .upload(filePath, file, { contentType: file.type });
+
+    if (uploadError) { errorMsg.textContent = uploadError.message; return; }
+
+    // Get the public URL for the file we just uploaded
+    const { data: urlData } = supabase.storage
+      .from("bracelet-photos")
+      .getPublicUrl(filePath);
+
+    const { error: insertError } = await supabase.from("bracelets").insert({
+      user_id: currentUser.id,
+      photo_url: urlData.publicUrl,
+      caption: document.getElementById("caption-input").value.trim()
+    });
+
+    if (insertError) { errorMsg.textContent = insertError.message; return; }
+
+    fileInput.value = "";
+    document.getElementById("caption-input").value = "";
+    loadBracelets();
+  }
+
+  async function loadBracelets() {
+    const listDiv = document.getElementById("bracelet-list");
+
+    const { data: bracelets } = await supabase
+      .from("bracelets")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false });
+
+    if (!bracelets || bracelets.length === 0) {
+      listDiv.innerHTML = "<p>You haven't posted any bracelets yet.</p>";
+      return;
+    }
+
+    listDiv.innerHTML = bracelets.map(b => `
+      <div class="card">
+        <img src="${b.photo_url}" alt="bracelet photo">
+        <p>${b.caption || ""}</p>
+        <button class="secondary" onclick="deleteBracelet('${b.id}')">Delete</button>
+      </div>
+    `).join("");
+  }
+
+  async function deleteBracelet(id) {
+    if (!confirm("Delete this photo?")) return;
+    const { error } = await supabase.from("bracelets").delete().eq("id", id);
+    if (error) { alert(error.message); return; }
+    loadBracelets();
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  }
+
+  init();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bracelet Buddies — Tutorials</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+</head>
+<body>
+
+<nav>
+  <a href="dashboard.html">Home</a>
+  <a href="tutorials.html">Tutorials</a>
+  <a href="my-bracelets.html">My Bracelets</a>
+  <a href="friends.html">Friends</a>
+  <span class="spacer"></span>
+  <a href="#" onclick="logout()" style="color:white;">Log Out</a>
+</nav>
+
+<main>
+  <h1>Tutorials</h1>
+
+  <!-- Add new tutorial form -->
+  <div class="card">
+    <h2>Add a Tutorial</h2>
+    <input type="text" id="new-title" placeholder="Title (e.g. Chevron Bracelet)">
+    <textarea id="new-desc" placeholder="Description"></textarea>
+    <select id="new-difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium">Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <input type="text" id="new-link" placeholder="Link to video/pattern (optional)">
+    <button onclick="addTutorial()">Add Tutorial</button>
+  </div>
+
+  <h2>All Tutorials</h2>
+  <div id="tutorial-list">Loading...</div>
+</main>
+
+<script>
+  let currentUser;
+  let statusMap = {}; // tutorial_id -> status row, for quick lookup
+
+  async function init() {
+    currentUser = await requireLogin();
+    if (!currentUser) return;
+    loadTutorials();
+  }
+
+  async function addTutorial() {
+    const title = document.getElementById("new-title").value.trim();
+    if (!title) { alert("Please enter a title."); return; }
+
+    const { error } = await supabase.from("tutorials").insert({
+      title,
+      description: document.getElementById("new-desc").value.trim(),
+      difficulty: document.getElementById("new-difficulty").value,
+      link: document.getElementById("new-link").value.trim() || null,
+      created_by: currentUser.id
+    });
+
+    if (error) { alert(error.message); return; }
+
+    document.getElementById("new-title").value = "";
+    document.getElementById("new-desc").value = "";
+    document.getElementById("new-link").value = "";
+    loadTutorials();
+  }
+
+  async function loadTutorials() {
+    const listDiv = document.getElementById("tutorial-list");
+
+    const { data: tutorials } = await supabase
+      .from("tutorials")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    // Load this user's status for every tutorial in one query
+    const { data: statuses } = await supabase
+      .from("tutorial_status")
+      .select("*")
+      .eq("user_id", currentUser.id);
+
+    statusMap = {};
+    (statuses || []).forEach(s => statusMap[s.tutorial_id] = s);
+
+    if (!tutorials || tutorials.length === 0) {
+      listDiv.innerHTML = "<p>No tutorials yet — add the first one above!</p>";
+      return;
+    }
+
+    listDiv.innerHTML = tutorials.map(t => renderTutorialCard(t)).join("");
+  }
+
+  function renderTutorialCard(t) {
+    const status = statusMap[t.id]?.status || "not_started";
+    const rating = statusMap[t.id]?.rating || "";
+    const comment = statusMap[t.id]?.comment || "";
+
+    return `
+      <div class="card">
+        <h3>${t.title} <span class="status-badge status-${status}">${status.replace('_',' ')}</span></h3>
+        <p><em>Difficulty: ${t.difficulty}</em></p>
+        <p>${t.description || ""}</p>
+        ${t.link ? `<p><a href="${t.link}" target="_blank">View pattern/video</a></p>` : ""}
+
+        <label>Status:</label>
+        <select id="status-${t.id}" onchange="updateStatus('${t.id}')">
+          <option value="not_started" ${status==='not_started'?'selected':''}>Not Started</option>
+          <option value="in_progress" ${status==='in_progress'?'selected':''}>Working On It</option>
+          <option value="completed" ${status==='completed'?'selected':''}>Completed</option>
+        </select>
+
+        <!-- Rating + comment only shown/used once marked completed -->
+        <div id="rating-block-${t.id}" style="${status==='completed' ? '' : 'display:none;'}">
+          <label>Ease rating (1 = hard, 5 = easy):</label>
+          <select id="rating-${t.id}">
+            ${[1,2,3,4,5].map(n => `<option value="${n}" ${rating==n?'selected':''}>${n}</option>`).join("")}
+          </select>
+          <label>Comment:</label>
+          <textarea id="comment-${t.id}">${comment}</textarea>
+          <button onclick="saveRating('${t.id}')">Save Rating & Comment</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Called when the status dropdown changes. Saves immediately (upsert:
+  // insert a new row if one doesn't exist yet, or update if it does).
+  async function updateStatus(tutorialId) {
+    const status = document.getElementById(`status-${tutorialId}`).value;
+
+    const { error } = await supabase.from("tutorial_status").upsert({
+      user_id: currentUser.id,
+      tutorial_id: tutorialId,
+      status: status,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,tutorial_id" });
+
+    if (error) { alert(error.message); return; }
+
+    // Show/hide the rating block based on new status
+    document.getElementById(`rating-block-${tutorialId}`).style.display =
+      status === "completed" ? "block" : "none";
+  }
+
+  async function saveRating(tutorialId) {
+    const rating = parseInt(document.getElementById(`rating-${tutorialId}`).value);
+    const comment = document.getElementById(`comment-${tutorialId}`).value.trim();
+
+    const { error } = await supabase.from("tutorial_status").upsert({
+      user_id: currentUser.id,
+      tutorial_id: tutorialId,
+      status: "completed",
+      rating,
+      comment,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id,tutorial_id" });
+
+    if (error) { alert(error.message); return; }
+    alert("Saved!");
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  }
+
+  init();
+</script>
+
+</body>
+</html>
