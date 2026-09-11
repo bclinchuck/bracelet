@@ -13,8 +13,7 @@ const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
 
 // Creates one shared client that every page's script can use.
 // (supabase-js is loaded from a CDN link in each HTML file's <head>.)
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Helper: redirect to index.html if nobody is signed in.
 // Call this at the top of every page except index.html.
 async function requireLogin() {
