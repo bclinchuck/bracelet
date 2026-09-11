@@ -19,7 +19,7 @@ window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function requireLogin() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    window.location.href = "login.html";
+    window.location.href = "index.html";
     return null;
   }
   return session.user;
