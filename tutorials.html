@@ -173,6 +173,10 @@
           <textarea id="comment-${t.id}">${comment}</textarea>
           <button onclick="saveRating('${t.id}')">Save Rating & Comment</button>
         </div>
+
+        ${t.created_by === currentUser.id ?
+          `<button class="secondary" onclick="deleteTutorial('${t.id}')" style="margin-top:10px;">Delete Tutorial</button>`
+          : ""}
       </div>
     `;
   }
@@ -211,6 +215,13 @@
 
     if (error) { alert(error.message); return; }
     alert("Saved!");
+  }
+
+  async function deleteTutorial(tutorialId) {
+    if (!confirm("Delete this tutorial? This can't be undone.")) return;
+    const { error } = await supabase.from("tutorials").delete().eq("id", tutorialId);
+    if (error) { alert(error.message); return; }
+    loadTutorials();
   }
 
   async function logout() {
