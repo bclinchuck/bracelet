@@ -6,6 +6,8 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<!-- Converts iPhone HEIC photos to JPEG in the browser before upload -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
 </head>
 <body>
 
@@ -32,7 +34,10 @@
       <option value="hard">Hard</option>
     </select>
     <input type="text" id="new-link" placeholder="Link to video/pattern (optional)">
+    <label>Photo (optional):</label>
+    <input type="file" id="new-image" accept="image/*">
     <button onclick="addTutorial()">Add Tutorial</button>
+    <p class="error-msg" id="add-error"></p>
   </div>
 
   <h2>All Tutorials</h2>
@@ -51,21 +56,65 @@
 
   async function addTutorial() {
     const title = document.getElementById("new-title").value.trim();
+    const errorMsg = document.getElementById("add-error");
+    errorMsg.textContent = "";
     if (!title) { alert("Please enter a title."); return; }
+
+    // Handle the optional photo upload first, so we have a URL to
+    // include when we insert the tutorial row itself.
+    let imageUrl = null;
+    const fileInput = document.getElementById("new-image");
+    let file = fileInput.files[0];
+
+    if (file) {
+      // Same HEIC-conversion handling as My Bracelets — iPhones often
+      // save photos in a format no browser can display directly.
+      const isHeic = file.type === "image/heic" || file.type === "image/heif" ||
+                     /\.hei[cf]$/i.test(file.name);
+      if (isHeic) {
+        errorMsg.textContent = "Converting photo…";
+        try {
+          const convertedBlob = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+          const newName = file.name.replace(/\.hei[cf]$/i, ".jpg");
+          file = new File([convertedBlob], newName, { type: "image/jpeg" });
+        } catch (err) {
+          errorMsg.textContent = "Couldn't convert this HEIC photo: " + err.message;
+          return;
+        }
+        errorMsg.textContent = "";
+      }
+
+      // Strip spaces/punctuation Supabase Storage doesn't allow in paths
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-]/g, "_");
+      const filePath = `${currentUser.id}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("tutorial-photos")
+        .upload(filePath, file, { contentType: file.type });
+
+      if (uploadError) { errorMsg.textContent = uploadError.message; return; }
+
+      const { data: urlData } = supabase.storage
+        .from("tutorial-photos")
+        .getPublicUrl(filePath);
+      imageUrl = urlData.publicUrl;
+    }
 
     const { error } = await supabase.from("tutorials").insert({
       title,
       description: document.getElementById("new-desc").value.trim(),
       difficulty: document.getElementById("new-difficulty").value,
       link: document.getElementById("new-link").value.trim() || null,
+      image_url: imageUrl,
       created_by: currentUser.id
     });
 
-    if (error) { alert(error.message); return; }
+    if (error) { errorMsg.textContent = error.message; return; }
 
     document.getElementById("new-title").value = "";
     document.getElementById("new-desc").value = "";
     document.getElementById("new-link").value = "";
+    fileInput.value = "";
     loadTutorials();
   }
 
@@ -101,6 +150,7 @@
 
     return `
       <div class="card">
+        ${t.image_url ? `<img src="${t.image_url}" alt="${t.title}">` : ""}
         <h3>${t.title} <span class="status-badge status-${status}">${status.replace('_',' ')}</span></h3>
         <p><em>Difficulty: ${t.difficulty}</em></p>
         <p>${t.description || ""}</p>

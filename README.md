@@ -9,7 +9,7 @@ Files:
 - `schema.sql` — run once in Supabase to create your database
 - `supabase-config.js` — your connection keys (shared by every page)
 - `style.css` — shared styling
-- `login.html` — sign up / log in
+- `index.html` — sign up / log in
 - `dashboard.html` — home feed of friends' recent bracelets
 - `tutorials.html` — browse/add tutorials, track status, rate & comment
 - `my-bracelets.html` — upload & view your bracelet photos
@@ -46,7 +46,7 @@ Files:
 
 1. Open the `bracelet-app` folder in VS Code.
 2. Install the **Live Server** extension (search it in the Extensions panel).
-3. Right-click `login.html` and choose **Open with Live Server**.
+3. Right-click `index.html` and choose **Open with Live Server**.
 4. Your browser opens the site. Sign up with an email/password, then explore.
 
 You now have a fully working app running on your computer.

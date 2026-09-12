@@ -134,7 +134,7 @@ main {
 }
 
 .card img {
-  width: 60%;
+  width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 3px;
@@ -243,4 +243,57 @@ input:focus, textarea:focus, select:focus {
 
 .form-box h1 {
   margin-top: 8px;
+}
+
+/* ---- Likes and comments on bracelet photos ---- */
+.social-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.like-btn {
+  background: transparent;
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.like-btn.liked {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: white;
+}
+
+.comments-list {
+  margin: 10px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.comment-row {
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.comment-row strong {
+  color: var(--plum);
+}
+
+.comment-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.comment-form input {
+  margin: 0;
+  flex: 1;
+}
+
+.comment-form button {
+  padding: 8px 16px;
 }
